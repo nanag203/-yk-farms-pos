@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import BottomNav from '@/components/BottomNav';
-
+import { useRouter } from 'next/navigation';
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [todaySales, setTodaySales] = useState(0);
@@ -11,6 +11,13 @@ export default function Dashboard() {
   const [totalDebt, setTotalDebt] = useState(0);
   const [lowStock, setLowStock] = useState([]);
   const [error, setError] = useState(null);
+  const router = useRouter();
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
+  }
 
   useEffect(() => {
     loadDashboard();
@@ -53,10 +60,18 @@ export default function Dashboard() {
 
   return (
     <main className="max-w-md mx-auto min-h-screen">
-      <header className="px-5 pt-8 pb-6 bg-forest text-cream">
-        <p className="text-gold text-xs tracking-[0.15em] uppercase font-medium mb-1">Yeboah Kudom Farms</p>
-        <h1 className="font-display font-semibold text-2xl leading-tight">Growing Quality,<br />Feeding the Future</h1>
-      </header>
+      <header className="px-5 pt-8 pb-6 bg-forest text-cream flex justify-between items-start">
+          <div>
+            <p className="text-gold text-xs tracking-[0.15em] uppercase font-medium mb-1">Yeboah Kudom Farms</p>
+            <h1 className="font-display font-semibold text-2xl leading-tight">Growing Quality,<br />Feeding the Future</h1>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="text-cream/70 text-xs border border-cream/30 rounded-full px-3 py-1.5 mt-1 hover:bg-cream/10 transition"
+          >
+            Log Out
+          </button>
+        </header>
 
       <div className="px-5 -mt-4">
         {error && (
