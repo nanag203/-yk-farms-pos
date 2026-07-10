@@ -8,6 +8,7 @@ const tabs = [
   { href: '/sale', label: 'New Sale', icon: SaleIcon },
   { href: '/stock', label: 'Stock', icon: StockIcon },
   { href: '/debts', label: 'Debts', icon: DebtIcon },
+  { href: '/reports', label: 'Reports', icon: ReportIcon },
 ];
 
 export default function BottomNav() {
@@ -72,3 +73,15 @@ function DebtIcon({ active }) {
     </svg>
   );
 }
+
+function DebtIcon({ active }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8}>
+      <path d="M4 5h16M4 12h16M4 19h10" strokeLinecap="round" />
+      <path d="M16 16.5 19 19l3-3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+
+
