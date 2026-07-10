@@ -74,14 +74,13 @@ function DebtIcon({ active }) {
   );
 }
 
-function DebtIcon({ active }) {
+function ReportIcon({ active }) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8}>
-      <path d="M4 5h16M4 12h16M4 19h10" strokeLinecap="round" />
-      <path d="M16 16.5 19 19l3-3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 19V5a1 1 0 0 1 1-1h9l6 6v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M14 4v5a1 1 0 0 0 1 1h5M8 13h8M8 16.5h5" strokeLinecap="round" />
     </svg>
   );
 }
-
 
 
