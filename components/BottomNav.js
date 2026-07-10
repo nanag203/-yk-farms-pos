@@ -3,32 +3,21 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  Home,
-  PlusCircle,
-  Package,
-  ListChecks,
-  FileText,
-  MoreHorizontal,
-  Receipt,
-  TrendingUp,
-  X,
-} from 'lucide-react';
 
 const forestGreen = '#26472d';
 const gold = '#e8b84b';
 
 const mainTabs = [
-  { href: '/', label: 'Home', icon: Home },
-  { href: '/new-sale', label: 'New Sale', icon: PlusCircle },
-  { href: '/stock', label: 'Stock', icon: Package },
-  { href: '/debts', label: 'Debts', icon: ListChecks },
-  { href: '/reports', label: 'Reports', icon: FileText },
+  { href: '/', label: 'Home', emoji: '🏠' },
+  { href: '/new-sale', label: 'New Sale', emoji: '➕' },
+  { href: '/stock', label: 'Stock', emoji: '📦' },
+  { href: '/debts', label: 'Debts', emoji: '📋' },
+  { href: '/reports', label: 'Reports', emoji: '📄' },
 ];
 
 const moreLinks = [
-  { href: '/expenses', label: 'Expenses', icon: Receipt },
-  { href: '/profit', label: 'Profit', icon: TrendingUp },
+  { href: '/expenses', label: 'Expenses', emoji: '🧾' },
+  { href: '/profit', label: 'Profit', emoji: '📈' },
 ];
 
 export default function BottomNav() {
@@ -75,36 +64,34 @@ export default function BottomNav() {
               </p>
               <button
                 onClick={() => setMoreOpen(false)}
-                style={{ background: 'none', border: 'none', padding: '4px' }}
+                style={{ background: 'none', border: 'none', padding: '4px', fontSize: '18px' }}
               >
-                <X size={20} color="#666" />
+                ✕
               </button>
             </div>
 
-            {moreLinks.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMoreOpen(false)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    padding: '14px 8px',
-                    textDecoration: 'none',
-                    color: isActive(item.href) ? gold : '#333',
-                    borderBottom: '1px solid #f0f0f0',
-                    fontFamily: 'Poppins, sans-serif',
-                    fontWeight: 500,
-                  }}
-                >
-                  <Icon size={20} color={isActive(item.href) ? gold : forestGreen} />
-                  {item.label}
-                </Link>
-              );
-            })}
+            {moreLinks.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMoreOpen(false)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '14px 8px',
+                  textDecoration: 'none',
+                  color: isActive(item.href) ? gold : '#333',
+                  borderBottom: '1px solid #f0f0f0',
+                  fontFamily: 'Poppins, sans-serif',
+                  fontWeight: 500,
+                  fontSize: '15px',
+                }}
+              >
+                <span style={{ fontSize: '18px' }}>{item.emoji}</span>
+                {item.label}
+              </Link>
+            ))}
           </div>
         </div>
       )}
@@ -124,7 +111,6 @@ export default function BottomNav() {
         }}
       >
         {mainTabs.map((item) => {
-          const Icon = item.icon;
           const active = isActive(item.href);
           return (
             <Link
@@ -134,7 +120,7 @@ export default function BottomNav() {
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: '4px',
+                gap: '2px',
                 textDecoration: 'none',
                 color: active ? gold : '#e8e8e0',
                 fontSize: '11px',
@@ -142,7 +128,7 @@ export default function BottomNav() {
                 fontWeight: 500,
               }}
             >
-              <Icon size={20} color={active ? gold : '#e8e8e0'} />
+              <span style={{ fontSize: '18px' }}>{item.emoji}</span>
               {item.label}
             </Link>
           );
@@ -154,7 +140,7 @@ export default function BottomNav() {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '4px',
+            gap: '2px',
             background: 'none',
             border: 'none',
             color: moreOpen ? gold : '#e8e8e0',
@@ -163,7 +149,7 @@ export default function BottomNav() {
             fontWeight: 500,
           }}
         >
-          <MoreHorizontal size={20} color={moreOpen ? gold : '#e8e8e0'} />
+          <span style={{ fontSize: '18px' }}>⋯</span>
           More
         </button>
       </nav>
