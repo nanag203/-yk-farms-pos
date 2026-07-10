@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase, createClient } from '@/lib/supabaseClient';
 import BottomNav from '@/components/BottomNav';
 import { useRouter } from 'next/navigation';
 export default function Dashboard() {
@@ -14,7 +14,8 @@ export default function Dashboard() {
   const router = useRouter();
 
   async function handleLogout() {
-    await supabase.auth.signOut();
+    const supabaseAuth = createClient();
+    await supabaseAuth.auth.signOut();
     router.push('/login');
     router.refresh();
   }
