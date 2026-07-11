@@ -59,10 +59,13 @@ export default function BottomNav() {
                 marginBottom: '16px',
               }}
             >
-              <p style={{ fontWeight: 600, color: forestGreen, margin: 0, fontFamily: 'Poppins, sans-serif' }}>
-                More
-              </p>
-              <button
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+  <img src="/IMG_2335.jpeg" alt="YK Farms" style={{ height: '24px', width: 'auto' }} />
+  <p style={{ fontWeight: 600, color: forestGreen, margin: 0, fontFamily: 'Poppins, sans-serif' }}>
+    More
+  </p>
+</div>
+
                 onClick={() => setMoreOpen(false)}
                 style={{ background: 'none', border: 'none', padding: '4px', fontSize: '18px' }}
               >
