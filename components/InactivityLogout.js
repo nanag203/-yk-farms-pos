@@ -1,35 +1,37 @@
-import { Zilla_Slab, Work_Sans, JetBrains_Mono } from 'next/font/google';
-import './globals.css';
-import InactivityLogout from '../components/InactivityLogout';
+'use client';
 
-const slab = Zilla_Slab({
-  subsets: ['latin'],
-  weight: ['500', '600', '700'],
-  variable: '--font-slab',
-});
-const sans = Work_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-sans',
-});
-const mono = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '600'],
-  variable: '--font-mono',
-});
+import { useEffect, useRef } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { supabase } from '../lib/supabaseClient';
 
-export const metadata = {
-  title: 'YK Farms POS',
-  description: 'Growing Quality, Feeding the Future',
-};
+const TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
-export default function RootLayout({ children }) {
-  return (
-    <html lang="en">
-      <body className={`${slab.variable} ${sans.variable} ${mono.variable} font-body bg-cream text-ink`}>
-        <InactivityLogout />
-        {children}
-      </body>
-    </html>
-  );
+export default function InactivityLogout() {
+  const timerRef = useRef(null);
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (pathname?.startsWith('/login')) return;
+
+    function resetTimer() {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(async () => {
+        await supabase.auth.signOut();
+        router.push('/login');
+      }, TIMEOUT_MS);
+    }
+
+    const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
+    events.forEach((event) => window.addEventListener(event, resetTimer));
+
+    resetTimer();
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      events.forEach((event) => window.removeEventListener(event, resetTimer));
+    };
+  }, [pathname, router]);
+
+  return null;
 }
