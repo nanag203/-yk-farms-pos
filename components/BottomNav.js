@@ -8,9 +8,8 @@ const forestGreen = '#26472d';
 const mossGreen = '#52796f';
 const cream = '#f7f3e8';
 const gold = '#e8b84b';
-const inactiveIcon = '#aebfa8'; // sage-tinted, not generic grey
+const inactiveIcon = '#aebfa8';
 
-// Inline SVGs — no lucide-react dependency needed
 const icons = {
   home: (
     <path d="M4 11.5 12 4l8 7.5M6 10v9a1 1 0 0 0 1 1h3v-5.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1V20h3a1 1 0 0 0 1-1v-9" />
@@ -57,6 +56,18 @@ const icons = {
     </>
   ),
   close: <path d="M6 6l12 12M18 6 6 18" />,
+  history: (
+    <>
+      <path d="M3 12a9 9 0 1 0 3-6.7" />
+      <path d="M3 4v5h5" />
+      <path d="M12 7v5l3 3" />
+    </>
+  ),
+  summary: (
+    <>
+      <path d="M4 20V10M10 20V4M16 20v-7M4 20h16" />
+    </>
+  ),
 };
 
 function Icon({ name, size = 20 }) {
@@ -87,6 +98,8 @@ const mainTabs = [
 const moreLinks = [
   { href: '/expenses', label: 'Expenses', icon: 'expenses' },
   { href: '/profit', label: 'Profit', icon: 'profit' },
+  { href: '/history', label: 'Transaction History', icon: 'history' },
+  { href: '/summary', label: 'Summary', icon: 'summary' },
 ];
 
 export default function BottomNav() {
