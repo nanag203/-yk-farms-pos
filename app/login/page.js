@@ -52,7 +52,8 @@ export default function LoginPage() {
       }}>
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
           <Image
-            src="/yk-logo-green.png"
+            src="/IMG_2335.jpeg"
+
             alt="Yeboah Kudom Farms"
             width={220}
             height={83}
