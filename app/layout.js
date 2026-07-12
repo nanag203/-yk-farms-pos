@@ -21,6 +21,20 @@ const mono = JetBrains_Mono({
 export const metadata = {
   title: 'YK Farms POS',
   description: 'Growing Quality, Feeding the Future',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'YK Farms POS',
+  },
+  icons: {
+    icon: '/IMG_2335.jpeg',
+    apple: '/IMG_2335.jpeg',
+  },
+};
+
+export const viewport = {
+  themeColor: '#26472d',
 };
 
 export default function RootLayout({ children }) {
