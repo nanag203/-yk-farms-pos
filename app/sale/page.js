@@ -152,7 +152,7 @@ export default function NewSale() {
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => updateQty(p, qty - 1)}
                         disabled={qty === 0}
@@ -161,7 +161,22 @@ export default function NewSale() {
                       >
                         –
                       </button>
-                      <span className="font-mono tabular w-6 text-center">{qty}</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min="0"
+                        max={stock}
+                        value={qty === 0 ? '' : qty}
+                        placeholder="0"
+                        disabled={outOfStock}
+                        onChange={e => {
+                          const val = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
+                          updateQty(p, isNaN(val) ? 0 : val);
+                        }}
+                        onFocus={e => e.target.select()}
+                        className="font-mono tabular w-12 text-center border border-ink/15 rounded-md py-1 disabled:opacity-30"
+                        aria-label={`${p.name} quantity`}
+                      />
                       <button
                         onClick={() => updateQty(p, qty + 1)}
                         disabled={outOfStock || atMax}
