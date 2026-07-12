@@ -28,13 +28,17 @@ export default function NewSale() {
     setCustomers(custs || []);
   }
 
-  function updateQty(productId, qty) {
+  function updateQty(product, qty) {
+    const stock = Number(product.current_stock || 0);
+    // Never allow the cart quantity to exceed what's actually in stock
+    const clamped = Math.max(0, Math.min(qty, stock));
+
     setCart(prev => {
       const next = { ...prev };
-      if (qty <= 0) {
-        delete next[productId];
+      if (clamped <= 0) {
+        delete next[product.id];
       } else {
-        next[productId] = qty;
+        next[product.id] = clamped;
       }
       return next;
     });
@@ -52,6 +56,19 @@ export default function NewSale() {
     if (cartItemCount === 0) {
       setResult({ success: false, message: 'Add at least one product to the sale.' });
       return;
+    }
+
+    // Safety check: re-verify against current stock right before submitting,
+    // in case stock changed since the page loaded (e.g. another sale just happened)
+    for (const p of products) {
+      const qty = cart[p.id] || 0;
+      if (qty > 0 && qty > Number(p.current_stock || 0)) {
+        setResult({
+          success: false,
+          message: `${p.name} only has ${p.current_stock} ${p.unit} left in stock. Please adjust the quantity.`,
+        });
+        return;
+      }
     }
 
     setSaving(true);
@@ -115,31 +132,48 @@ export default function NewSale() {
             </div>
           ) : (
             <div className="space-y-2">
-              {products.map(p => (
-                <div key={p.id} className="receipt-card p-3.5 flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-sm">{p.name}</p>
-                    <p className="text-xs text-ink/50 font-mono tabular">GH₵{Number(p.price).toFixed(2)} / {p.unit}</p>
+              {products.map(p => {
+                const stock = Number(p.current_stock || 0);
+                const qty = cart[p.id] || 0;
+                const outOfStock = stock <= 0;
+                const atMax = qty >= stock;
+                return (
+                  <div
+                    key={p.id}
+                    className={`receipt-card p-3.5 flex items-center justify-between ${outOfStock ? 'opacity-50' : ''}`}
+                  >
+                    <div>
+                      <p className="font-medium text-sm">{p.name}</p>
+                      {outOfStock ? (
+                        <p className="text-xs text-clay font-semibold mt-0.5">Out of stock</p>
+                      ) : (
+                        <p className="text-xs text-ink/50 font-mono tabular">
+                          GH₵{Number(p.price).toFixed(2)} / {p.unit} · {stock} left
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => updateQty(p, qty - 1)}
+                        disabled={qty === 0}
+                        className="w-8 h-8 rounded-full bg-forest/10 text-forest font-semibold text-lg flex items-center justify-center active:scale-95 transition-transform disabled:opacity-30"
+                        aria-label={`Decrease ${p.name} quantity`}
+                      >
+                        –
+                      </button>
+                      <span className="font-mono tabular w-6 text-center">{qty}</span>
+                      <button
+                        onClick={() => updateQty(p, qty + 1)}
+                        disabled={outOfStock || atMax}
+                        className="w-8 h-8 rounded-full bg-gold text-forest font-semibold text-lg flex items-center justify-center active:scale-95 transition-transform disabled:opacity-30"
+                        aria-label={`Increase ${p.name} quantity`}
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => updateQty(p.id, (cart[p.id] || 0) - 1)}
-                      className="w-8 h-8 rounded-full bg-forest/10 text-forest font-semibold text-lg flex items-center justify-center active:scale-95 transition-transform"
-                      aria-label={`Decrease ${p.name} quantity`}
-                    >
-                      –
-                    </button>
-                    <span className="font-mono tabular w-6 text-center">{cart[p.id] || 0}</span>
-                    <button
-                      onClick={() => updateQty(p.id, (cart[p.id] || 0) + 1)}
-                      className="w-8 h-8 rounded-full bg-gold text-forest font-semibold text-lg flex items-center justify-center active:scale-95 transition-transform"
-                      aria-label={`Increase ${p.name} quantity`}
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
