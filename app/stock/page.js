@@ -12,6 +12,7 @@ export default function Stock() {
   const [newProduct, setNewProduct] = useState({ name: '', unit: 'crate', price: '', current_stock: '', low_stock_alert: '10' });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   useEffect(() => {
     loadProducts();
@@ -79,6 +80,26 @@ export default function Stock() {
     }
   }
 
+  async function handleDeleteProduct(product) {
+    setBusy(true);
+    try {
+      const { error } = await supabase.from('products').delete().eq('id', product.id);
+      if (error) throw error;
+      setConfirmDeleteId(null);
+      setMessage({ type: 'success', text: `${product.name} removed.` });
+      loadProducts();
+    } catch (e) {
+      // Most likely cause: this product has existing sales/stock history linked to it
+      setMessage({
+        type: 'error',
+        text: `Couldn't delete ${product.name} — it has sales or stock history attached to it.`,
+      });
+      setConfirmDeleteId(null);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="max-w-md mx-auto min-h-screen">
       <header className="px-5 pt-8 pb-5 bg-forest text-cream">
@@ -107,6 +128,7 @@ export default function Stock() {
           <div className="space-y-3 mb-4">
             {products.map(p => {
               const low = p.current_stock <= p.low_stock_alert;
+              const confirming = confirmDeleteId === p.id;
               return (
                 <div key={p.id} className="receipt-card p-4">
                   <div className="flex justify-between items-start mb-3">
@@ -121,23 +143,54 @@ export default function Stock() {
                       <p className="text-[11px] text-ink/40">{p.unit}s left</p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      placeholder="Qty received"
-                      value={restockQty[p.id] || ''}
-                      onChange={e => setRestockQty(prev => ({ ...prev, [p.id]: e.target.value }))}
-                      className="flex-1 border border-ink/15 rounded-md p-2 text-sm font-mono"
-                    />
-                    <button
-                      onClick={() => handleRestock(p.id)}
-                      disabled={busy}
-                      className="bg-forest text-cream text-sm font-medium px-4 rounded-md disabled:opacity-40"
-                    >
-                      Add stock
-                    </button>
-                  </div>
+
+                  {!confirming ? (
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        placeholder="Qty received"
+                        value={restockQty[p.id] || ''}
+                        onChange={e => setRestockQty(prev => ({ ...prev, [p.id]: e.target.value }))}
+                        className="flex-1 border border-ink/15 rounded-md p-2 text-sm font-mono"
+                      />
+                      <button
+                        onClick={() => handleRestock(p.id)}
+                        disabled={busy}
+                        className="bg-forest text-cream text-sm font-medium px-4 rounded-md disabled:opacity-40"
+                      >
+                        Add stock
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteId(p.id)}
+                        disabled={busy}
+                        aria-label={`Delete ${p.name}`}
+                        className="border border-clay/40 text-clay text-sm font-medium px-3 rounded-md disabled:opacity-40"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 bg-clay/10 rounded-md p-2.5">
+                      <p className="flex-1 text-xs text-clay font-medium">
+                        Remove {p.name} permanently?
+                      </p>
+                      <button
+                        onClick={() => setConfirmDeleteId(null)}
+                        disabled={busy}
+                        className="border border-ink/15 text-ink/60 text-xs font-medium px-3 py-1.5 rounded-md"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProduct(p)}
+                        disabled={busy}
+                        className="bg-clay text-cream text-xs font-semibold px-3 py-1.5 rounded-md disabled:opacity-40"
+                      >
+                        {busy ? 'Deleting...' : 'Confirm delete'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
