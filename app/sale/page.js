@@ -7,7 +7,7 @@ import BottomNav from '@/components/BottomNav';
 export default function NewSale() {
   const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
-  const [cart, setCart] = useState({}); // { productId: quantity }
+  const [cart, setCart] = useState({}); // { productId: { qty, price } }
   const [customerId, setCustomerId] = useState('');
   const [newCustomerMode, setNewCustomerMode] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState('');
@@ -38,15 +38,27 @@ export default function NewSale() {
       if (clamped <= 0) {
         delete next[product.id];
       } else {
-        next[product.id] = clamped;
+        // Keep whatever price was already set for this line, otherwise default to the product's base price
+        const existingPrice = next[product.id]?.price ?? Number(product.price);
+        next[product.id] = { qty: clamped, price: existingPrice };
       }
       return next;
     });
   }
 
+  function updatePrice(product, price) {
+    setCart(prev => {
+      const line = prev[product.id];
+      if (!line) return prev; // no qty set yet, nothing to price
+      const cleanPrice = price === '' ? 0 : Number(price);
+      return { ...prev, [product.id]: { ...line, price: isNaN(cleanPrice) ? 0 : cleanPrice } };
+    });
+  }
+
   const total = products.reduce((sum, p) => {
-    const qty = cart[p.id] || 0;
-    return sum + qty * Number(p.price);
+    const line = cart[p.id];
+    if (!line) return sum;
+    return sum + line.qty * Number(line.price);
   }, 0);
 
   const cartItemCount = Object.keys(cart).length;
@@ -61,7 +73,8 @@ export default function NewSale() {
     // Safety check: re-verify against current stock right before submitting,
     // in case stock changed since the page loaded (e.g. another sale just happened)
     for (const p of products) {
-      const qty = cart[p.id] || 0;
+      const line = cart[p.id];
+      const qty = line?.qty || 0;
       if (qty > 0 && qty > Number(p.current_stock || 0)) {
         setResult({
           success: false,
@@ -87,8 +100,12 @@ export default function NewSale() {
       }
 
       const items = products
-        .filter(p => cart[p.id] > 0)
-        .map(p => ({ product_id: p.id, quantity: cart[p.id], unit_price: Number(p.price) }));
+        .filter(p => cart[p.id]?.qty > 0)
+        .map(p => ({
+          product_id: p.id,
+          quantity: cart[p.id].qty,
+          unit_price: Number(cart[p.id].price), // ← the price you actually typed for this sale
+        }));
 
       const paidAmount = amountPaid === '' ? total : Number(amountPaid);
 
@@ -134,58 +151,81 @@ export default function NewSale() {
             <div className="space-y-2">
               {products.map(p => {
                 const stock = Number(p.current_stock || 0);
-                const qty = cart[p.id] || 0;
+                const line = cart[p.id];
+                const qty = line?.qty || 0;
                 const outOfStock = stock <= 0;
                 const atMax = qty >= stock;
                 return (
                   <div
                     key={p.id}
-                    className={`receipt-card p-3.5 flex items-center justify-between ${outOfStock ? 'opacity-50' : ''}`}
+                    className={`receipt-card p-3.5 ${outOfStock ? 'opacity-50' : ''}`}
                   >
-                    <div>
-                      <p className="font-medium text-sm">{p.name}</p>
-                      {outOfStock ? (
-                        <p className="text-xs text-clay font-semibold mt-0.5">Out of stock</p>
-                      ) : (
-                        <p className="text-xs text-ink/50 font-mono tabular">
-                          GH₵{Number(p.price).toFixed(2)} / {p.unit} · {stock} left
-                        </p>
-                      )}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm">{p.name}</p>
+                        {outOfStock ? (
+                          <p className="text-xs text-clay font-semibold mt-0.5">Out of stock</p>
+                        ) : (
+                          <p className="text-xs text-ink/50 font-mono tabular">
+                            Base GH₵{Number(p.price).toFixed(2)} / {p.unit} · {stock} left
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => updateQty(p, qty - 1)}
+                          disabled={qty === 0}
+                          className="w-8 h-8 rounded-full bg-forest/10 text-forest font-semibold text-lg flex items-center justify-center active:scale-95 transition-transform disabled:opacity-30"
+                          aria-label={`Decrease ${p.name} quantity`}
+                        >
+                          –
+                        </button>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          max={stock}
+                          value={qty === 0 ? '' : qty}
+                          placeholder="0"
+                          disabled={outOfStock}
+                          onChange={e => {
+                            const val = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
+                            updateQty(p, isNaN(val) ? 0 : val);
+                          }}
+                          onFocus={e => e.target.select()}
+                          className="font-mono tabular w-12 text-center border border-ink/15 rounded-md py-1 disabled:opacity-30"
+                          aria-label={`${p.name} quantity`}
+                        />
+                        <button
+                          onClick={() => updateQty(p, qty + 1)}
+                          disabled={outOfStock || atMax}
+                          className="w-8 h-8 rounded-full bg-gold text-forest font-semibold text-lg flex items-center justify-center active:scale-95 transition-transform disabled:opacity-30"
+                          aria-label={`Increase ${p.name} quantity`}
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => updateQty(p, qty - 1)}
-                        disabled={qty === 0}
-                        className="w-8 h-8 rounded-full bg-forest/10 text-forest font-semibold text-lg flex items-center justify-center active:scale-95 transition-transform disabled:opacity-30"
-                        aria-label={`Decrease ${p.name} quantity`}
-                      >
-                        –
-                      </button>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        min="0"
-                        max={stock}
-                        value={qty === 0 ? '' : qty}
-                        placeholder="0"
-                        disabled={outOfStock}
-                        onChange={e => {
-                          const val = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
-                          updateQty(p, isNaN(val) ? 0 : val);
-                        }}
-                        onFocus={e => e.target.select()}
-                        className="font-mono tabular w-12 text-center border border-ink/15 rounded-md py-1 disabled:opacity-30"
-                        aria-label={`${p.name} quantity`}
-                      />
-                      <button
-                        onClick={() => updateQty(p, qty + 1)}
-                        disabled={outOfStock || atMax}
-                        className="w-8 h-8 rounded-full bg-gold text-forest font-semibold text-lg flex items-center justify-center active:scale-95 transition-transform disabled:opacity-30"
-                        aria-label={`Increase ${p.name} quantity`}
-                      >
-                        +
-                      </button>
-                    </div>
+
+                    {qty > 0 && (
+                      <div className="mt-2.5 pt-2.5 border-t border-ink/10 flex items-center justify-between gap-2">
+                        <label className="text-xs text-ink/50 font-medium shrink-0">Your price / {p.unit}</label>
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-ink/40 font-mono">GH₵</span>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            step="0.01"
+                            value={line.price}
+                            onChange={e => updatePrice(p, e.target.value)}
+                            onFocus={e => e.target.select()}
+                            className="font-mono tabular w-20 text-right border border-ink/15 rounded-md py-1 px-2 text-sm"
+                            aria-label={`${p.name} sale price`}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
