@@ -73,7 +73,7 @@ export default function ReportsPage() {
             quantity,
             unit_price,
             subtotal,
-            products ( name, unit )
+            products ( name, unit, cost_price )
           )
         `)
         .gte('sale_date', start.toISOString())
@@ -89,6 +89,9 @@ export default function ReportsPage() {
       }
 
       const rows = []
+      let totalCostOfGoods = 0
+      let missingCostPrice = false
+
       for (const sale of sales) {
         const customerName = sale.customers?.name || 'Walk-in'
         const customerType = sale.customers?.customer_type || ''
@@ -103,6 +106,8 @@ export default function ReportsPage() {
             'Quantity': '',
             'Unit Price': '',
             'Line Subtotal': '',
+            'Cost Price': '',
+            'Line Profit': '',
             'Sale Total': sale.total_amount,
             'Amount Paid': sale.amount_paid,
             'Payment Status': sale.payment_status,
@@ -110,14 +115,29 @@ export default function ReportsPage() {
           })
         } else {
           for (const item of items) {
+            const qty = Number(item.quantity || 0)
+            const unitPrice = Number(item.unit_price || 0)
+            const subtotal = Number(item.subtotal ?? qty * unitPrice)
+
+            const costPriceRaw = item.products?.cost_price
+            const hasCost = costPriceRaw !== null && costPriceRaw !== undefined
+            const costPrice = hasCost ? Number(costPriceRaw) : 0
+            if (!hasCost) missingCostPrice = true
+
+            const lineCost = costPrice * qty
+            const lineProfit = subtotal - lineCost
+            totalCostOfGoods += lineCost
+
             rows.push({
               'Sale Date': new Date(sale.sale_date).toLocaleString(),
               'Customer': customerName,
               'Customer Type': customerType,
               'Product': item.products?.name || '',
-              'Quantity': item.quantity,
-              'Unit Price': item.unit_price,
-              'Line Subtotal': item.subtotal,
+              'Quantity': qty,
+              'Unit Price': unitPrice,
+              'Line Subtotal': subtotal.toFixed(2),
+              'Cost Price': hasCost ? costPrice.toFixed(2) : 'not set',
+              'Line Profit': hasCost ? lineProfit.toFixed(2) : 'n/a',
               'Sale Total': sale.total_amount,
               'Amount Paid': sale.amount_paid,
               'Payment Status': sale.payment_status,
@@ -131,14 +151,24 @@ export default function ReportsPage() {
       const totalRevenue = sales.reduce((sum, s) => sum + Number(s.total_amount || 0), 0)
       const totalPaid = sales.reduce((sum, s) => sum + Number(s.amount_paid || 0), 0)
       const totalOutstanding = totalRevenue - totalPaid
+      const totalProfit = totalRevenue - totalCostOfGoods
 
       const summaryRows = [
         { Metric: 'Date Range', Value: `${start.toLocaleDateString()} - ${end.toLocaleDateString()}` },
         { Metric: 'Total Sales', Value: totalSales },
         { Metric: 'Total Revenue', Value: totalRevenue.toFixed(2) },
+        { Metric: 'Total Cost of Goods', Value: totalCostOfGoods.toFixed(2) },
+        { Metric: 'Total Profit', Value: totalProfit.toFixed(2) },
         { Metric: 'Total Paid', Value: totalPaid.toFixed(2) },
         { Metric: 'Total Outstanding', Value: totalOutstanding.toFixed(2) },
       ]
+
+      if (missingCostPrice) {
+        summaryRows.push({
+          Metric: 'Note',
+          Value: 'One or more products have no cost price set — their profit shows as n/a and is excluded from Total Profit.',
+        })
+      }
 
       const workbook = XLSX.utils.book_new()
       const summarySheet = XLSX.utils.json_to_sheet(summaryRows)
@@ -150,7 +180,7 @@ export default function ReportsPage() {
       const filename = `YK-Farms-Sales-${start.toISOString().slice(0, 10)}_to_${end.toISOString().slice(0, 10)}.xlsx`
       XLSX.writeFile(workbook, filename)
 
-      setLastExport({ filename, totalSales, totalRevenue })
+      setLastExport({ filename, totalSales, totalRevenue, totalProfit })
     } catch (err) {
       console.error(err)
       setError('Something went wrong pulling the data. Try again.')
@@ -242,7 +272,7 @@ export default function ReportsPage() {
           fontSize: '0.9rem', borderLeft: `3px solid ${brand.mossGreen}`,
         }}>
           <p style={{ color: brand.charcoal }}><strong>Downloaded:</strong> {lastExport.filename}</p>
-          <p style={{ color: brand.charcoal }}>{lastExport.totalSales} sales · GHS {lastExport.totalRevenue.toFixed(2)} total</p>
+          <p style={{ color: brand.charcoal }}>{lastExport.totalSales} sales · GHS {lastExport.totalRevenue.toFixed(2)} revenue · GHS {lastExport.totalProfit.toFixed(2)} profit</p>
         </div>
       )}
     </div>
