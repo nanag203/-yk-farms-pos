@@ -1,7 +1,7 @@
 // app/api/assistant/route.js
 // YK Farms VA (web chat). Behind your normal login (middleware.js).
-// Answers questions, gives ideas, drafts customer texts, and logs sales / purchases /
-// expenses / debt payments ONLY after you tap Save on the confirmation card.
+// Answers questions, gives ideas, watches the live market (web search), drafts customer texts,
+// and logs sales / purchases / expenses / debt payments ONLY after you tap Save on the card.
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -188,6 +188,19 @@ const TOOLS = [
     },
   },
 ];
+
+// Live web search (run by Anthropic). Lets the VA check current egg prices, feed costs, news, etc.
+const WEB_SEARCH = {
+  type: "web_search_20250305",
+  name: "web_search",
+  max_uses: 3,
+  user_location: {
+    type: "approximate",
+    country: "GH",
+    city: "Accra",
+    timezone: "Africa/Accra",
+  },
+};
 
 async function prepareSale(input) {
   const items = Array.isArray(input.items) ? input.items : [];
@@ -438,8 +451,9 @@ async function runAssistant(history, discarded) {
 
   const system =
     "You are the virtual assistant (VA) for Nana, who runs YK Farms, an egg sourcing and supply business in Ablekuma, Accra, Ghana. You chat with him in the POS web chat on his phone. Amounts are Ghana cedis (GHS).\n\n" +
-    "STYLE: casual, warm, short and direct, like a sharp business partner. Plain text only: no markdown, no asterisks, no headings. Short lines or simple dashes for lists. Keep most replies under 120 words.\n\n" +
-    "FACTS: Answer ONLY from the business data below. Never invent numbers, customers, products or prices. If data looks missing or incomplete (no recent sales, no expenses logged, stock at zero), say so plainly and explain what it means.\n\n" +
+    "STYLE: casual, warm, short and direct, like a sharp business partner. Plain text only: no markdown, no asterisks, no headings. Short lines or simple dashes for lists. Keep most replies under 120 words (market answers can run a little longer).\n\n" +
+    "FACTS: Business numbers (sales, stock, debts, customers, prices, costs) come ONLY from the business data below. Never invent them. If data looks missing or incomplete (no recent sales, no expenses logged, stock at zero), say so plainly and explain what it means.\n\n" +
+    "MARKET WATCH: You can search the web for current information: egg and poultry prices in Ghana, maize and feed costs, fuel prices, bird flu or disease outbreaks, import rules, exchange rates, competitors, relevant news. Search whenever Nana asks about the market, or when fresh outside information would change your advice. Then connect it to HIS numbers: his margins, stock, customers and debts, and say what he should do about it. Be honest about uncertainty: if you cannot find a reliable current figure, say so instead of guessing, and mention the source name and how recent it is. Do not search for things the business data already answers.\n\n" +
     "LOGGING: To log a sale, expense, stock purchase or debt payment, call the matching tool. Tools only PROPOSE: nothing is saved until Nana taps the Save button that appears under your message. Never say something is saved or done when you only proposed it. After proposing, give a one or two line recap and tell him to tap Save to confirm or Cancel to discard. If something is missing or unclear (customer, product, price, amount paid), ask ONE short question instead of guessing. If he gives no price, the product's list price is used, so mention that in your recap. Ask before creating a new customer or supplier. Buying eggs from a supplier is a PURCHASE (record_purchase), never an expense. Other costs (transport, fuel, salaries, packaging, rent, airtime) are expenses with a short category. Entries are saved with today's date and time. You cannot backdate, edit or delete records, so say so if asked.\n\n" +
     "IDEAS: when asked what to do or how to grow, be specific: name customers, products and amounts from the data (who owes him, who has gone quiet, what sells, what is out of stock, margins).\n\n" +
     "CUSTOMER TEXTS: you can only DRAFT messages, you cannot send them. Write the draft in Nana's casual, friendly voice, short, Ghanaian English is fine. Give one draft unless he asks for more.\n\n" +
@@ -460,16 +474,34 @@ async function runAssistant(history, discarded) {
         "x-api-key": process.env.ANTHROPIC_API_KEY,
         "anthropic-version": "2023-06-01",
       },
-      body: JSON.stringify({ model: MODEL, max_tokens: 900, system, tools: TOOLS, messages }),
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 1200,
+        system,
+        tools: [...TOOLS, WEB_SEARCH],
+        messages,
+      }),
     });
     if (!res.ok) throw new Error(`Claude API ${res.status}: ${await res.text()}`);
     const out = await res.json();
 
-    const text = (out.content || [])
-      .filter((b) => b.type === "text")
+    // Use only the text written after the last web search finished (skips "let me look that up")
+    const blocks = out.content || [];
+    let lastSearch = -1;
+    blocks.forEach((b, idx) => {
+      if (b.type === "web_search_tool_result") lastSearch = idx;
+    });
+    const text = blocks
+      .filter((b, idx) => b.type === "text" && idx > lastSearch)
       .map((b) => b.text)
-      .join("\n")
+      .join("")
       .trim();
+
+    // Long searches can pause: send the answer so far back so it can carry on
+    if (out.stop_reason === "pause_turn") {
+      messages.push({ role: "assistant", content: out.content });
+      continue;
+    }
 
     if (out.stop_reason !== "tool_use") {
       return { text: text || "Sorry, I had nothing to say. Try again?", proposals };
@@ -485,61 +517,4 @@ async function runAssistant(history, discarded) {
       } else {
         try {
           const prep = await handler(block.input || {});
-          if (prep.error) {
-            content = `Not proposed. ${prep.error}`;
-          } else {
-            prep.payload.summary = prep.summary;
-            proposals.push(prep.payload);
-            content = `Proposed, NOT saved yet: ${prep.summary}. Nana will see Save and Cancel buttons under your message.`;
-          }
-        } catch (e) {
-          content = `Error: ${e.message}`;
-        }
-      }
-      results.push({ type: "tool_result", tool_use_id: block.id, content });
-    }
-    messages.push({ role: "user", content: results });
-  }
-  return { text: "That took too many steps. Please try again in simpler words.", proposals };
-}
-
-export async function POST(req) {
-  try {
-    const body = await req.json();
-
-    // Nana tapped Save: save the proposed entries
-    if (Array.isArray(body.confirm)) {
-      const results = [];
-      for (const p of body.confirm.slice(0, 10)) {
-        try {
-          const r = await executeAction(p);
-          results.push(r.message);
-        } catch (e) {
-          results.push(`Could not save: ${p?.summary || "entry"}. Reason: ${e.message}`);
-        }
-      }
-      return NextResponse.json({ reply: results.join("\n\n") || "Nothing to save." });
-    }
-
-    // Normal chat message
-    let messages = (body.messages || [])
-      .filter(
-        (m) =>
-          (m.role === "user" || m.role === "assistant") &&
-          typeof m.content === "string" &&
-          m.content.trim()
-      )
-      .slice(-20)
-      .map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }));
-    while (messages.length && messages[0].role !== "user") messages.shift();
-    if (!messages.length) {
-      return NextResponse.json({ error: "No message received." }, { status: 400 });
-    }
-
-    const discarded = Math.max(0, Math.floor(num(body.discarded)));
-    const { text, proposals } = await runAssistant(messages, discarded);
-    return NextResponse.json({ reply: text, pending: proposals });
-  } catch (e) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
-  }
-}
+          if (prep.error
