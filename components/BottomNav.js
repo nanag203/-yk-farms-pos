@@ -68,6 +68,12 @@ const icons = {
       <path d="M4 20V10M10 20V4M16 20v-7M4 20h16" />
     </>
   ),
+  assistant: (
+    <>
+      <path d="M11 3l1.8 5.2L18 10l-5.2 1.8L11 17l-1.8-5.2L4 10l5.2-1.8L11 3Z" />
+      <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z" />
+    </>
+  ),
 };
 
 function Icon({ name, size = 20 }) {
@@ -96,6 +102,7 @@ const mainTabs = [
 ];
 
 const moreLinks = [
+  { href: '/assistant', label: 'AI Assistant', icon: 'assistant' },
   { href: '/expenses', label: 'Expenses', icon: 'expenses' },
   { href: '/profit', label: 'Profit', icon: 'profit' },
   { href: '/history', label: 'Transaction History', icon: 'history' },
