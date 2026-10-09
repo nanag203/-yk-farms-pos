@@ -517,4 +517,61 @@ async function runAssistant(history, discarded) {
       } else {
         try {
           const prep = await handler(block.input || {});
-          if (prep.error
+          if (prep.error) {
+            content = `Not proposed. ${prep.error}`;
+          } else {
+            prep.payload.summary = prep.summary;
+            proposals.push(prep.payload);
+            content = `Proposed, NOT saved yet: ${prep.summary}. Nana will see Save and Cancel buttons under your message.`;
+          }
+        } catch (e) {
+          content = `Error: ${e.message}`;
+        }
+      }
+      results.push({ type: "tool_result", tool_use_id: block.id, content });
+    }
+    messages.push({ role: "user", content: results });
+  }
+  return { text: "That took too many steps. Please try again in simpler words.", proposals };
+}
+
+export async function POST(req) {
+  try {
+    const body = await req.json();
+
+    // Nana tapped Save: save the proposed entries
+    if (Array.isArray(body.confirm)) {
+      const results = [];
+      for (const p of body.confirm.slice(0, 10)) {
+        try {
+          const r = await executeAction(p);
+          results.push(r.message);
+        } catch (e) {
+          results.push(`Could not save: ${p?.summary || "entry"}. Reason: ${e.message}`);
+        }
+      }
+      return NextResponse.json({ reply: results.join("\n\n") || "Nothing to save." });
+    }
+
+    // Normal chat message
+    let messages = (body.messages || [])
+      .filter(
+        (m) =>
+          (m.role === "user" || m.role === "assistant") &&
+          typeof m.content === "string" &&
+          m.content.trim()
+      )
+      .slice(-20)
+      .map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }));
+    while (messages.length && messages[0].role !== "user") messages.shift();
+    if (!messages.length) {
+      return NextResponse.json({ error: "No message received." }, { status: 400 });
+    }
+
+    const discarded = Math.max(0, Math.floor(num(body.discarded)));
+    const { text, proposals } = await runAssistant(messages, discarded);
+    return NextResponse.json({ reply: text, pending: proposals });
+  } catch (e) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
+  }
+}
